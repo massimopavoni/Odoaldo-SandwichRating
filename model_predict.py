@@ -1,4 +1,5 @@
 import os
+from random import shuffle as random_shuffle
 
 import cv2
 import numpy as np
@@ -9,15 +10,20 @@ from tensorflow_addons import metrics as tfa_metrics
 
 IMG_SIZE = 128
 
-for file in os.listdir('custom_images'):
+model = keras_load_model('odoaldo_sandwich_rating_model', compile=False)
+model.compile(loss=tf_losses.MeanSquaredError(), optimizer=tf_optimizers.nadam_v2.Nadam(),
+              metrics=[tf_metrics.MeanAbsoluteError(), tfa_metrics.RSquare(y_shape=(1,))])
+
+files = os.listdir('custom_images')
+random_shuffle(files)
+
+for file in files:
     image = cv2.imread(os.path.join('custom_images', file))
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image_array = cv2.resize(image, (IMG_SIZE, IMG_SIZE))
     X = np.array(image_array).reshape((IMG_SIZE, IMG_SIZE, 3))
     X = X / 255.0
-    model = keras_load_model('odoaldo_sandwich_rating_model', compile=False)
-    model.compile(loss=tf_losses.MeanSquaredError(), optimizer=tf_optimizers.nadam_v2.Nadam(),
-                  metrics=[tf_metrics.MeanAbsoluteError(), tfa_metrics.RSquare(y_shape=(1,))])
+
     plt.imshow(image)
     plt.title(f"Model prediction: {model.predict(np.array([X]))[0]}")
     plt.show()

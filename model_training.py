@@ -35,7 +35,19 @@ class OdoaldoSandwichRating:
         self.train_batch_size = train_batch_size
         self.epochs = epochs
 
+    def __show_rating_distribution(self, values, message):
+        # Show rating distribution in dataset
+        unique, counts = np.unique(values, return_counts=True)
+        plt.cla()
+        plt.bar([idx for idx in range(len(unique))], counts)
+        plt.title(f"Rating distribution {message}")
+        plt.xticks([idx + 0.5 for idx in range(len(unique))], unique, rotation=35, ha='right', size=10)
+        plt.show()
+
     def __oversample_dataset(self, X_in, y_in):
+        # Show rating distribution in dataset before oversampling
+        self.__show_rating_distribution(y_in, "before oversampling dataset")
+
         # Oversample data
         unique, unique_index, unique_count = np.unique(y_in, return_inverse=True, return_counts=True)
         count = np.max(unique_count)
@@ -50,6 +62,9 @@ class OdoaldoSandwichRating:
         self.y = np.concatenate((y_in, y_oversampled))
 
     def __split_dataset(self):
+        # Show rating distribution in dataset before splitting
+        self.__show_rating_distribution(self.y, "before splitting dataset")
+
         # Split dataset
         self.X = np.split(self.X, [int(len(self.X) * 0.8), int(len(self.X) * 0.9)])
         self.y = np.split(self.y, [int(len(self.y) * 0.8), int(len(self.y) * 0.9)])

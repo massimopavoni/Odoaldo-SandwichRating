@@ -27,7 +27,7 @@ class Dataset(enum.Enum):
 
 # Model class
 class OdoaldoSandwichRating:
-    def __init__(self, train_batch_size=32, epochs=10):
+    def __init__(self, train_batch_size=32, epochs=8):
         self.X = None
         self.y = None
         self.model = None
@@ -122,24 +122,24 @@ class OdoaldoSandwichRating:
             self.model = Sequential()
 
             # First convolutional layer
-            self.model.add(Conv2D(32, (3, 3), input_shape=self.X[Dataset.train.value].shape[1:]))
+            self.model.add(Conv2D(16, (3, 3), input_shape=self.X[Dataset.train.value].shape[1:]))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D())
+            self.model.add(MaxPooling2D(2, 2))
 
             # Second convolutional layer
-            self.model.add(Conv2D(64, (3, 3)))
+            self.model.add(Conv2D(32, (3, 3)))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D())
+            self.model.add(MaxPooling2D(2, 2))
 
             # Third convolutional layer
-            self.model.add(Conv2D(128, (3, 3)))
+            self.model.add(Conv2D(64, (3, 3)))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D())
+            self.model.add(MaxPooling2D(2, 2))
 
             # Flatten layer
             self.model.add(Flatten())
             # Hidden fully connected layer
-            self.model.add(Dense(128))
+            self.model.add(Dense(512))
             self.model.add(Activation('relu'))
             # Output layer
             self.model.add(Dense(1))

@@ -2,6 +2,7 @@ import enum
 import os
 from pickle import dump as pickle_dump, load as pickle_load
 from random import choices as random_choices, shuffle as random_shuffle
+from sys import argv as sys_argv
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -124,8 +125,6 @@ class OdoaldoSandwichRating:
                 pickle_dump(self.X, pickle_out)
             with open(os.path.join('dataset', 'y.pickle'), 'wb') as pickle_out:
                 pickle_dump(self.y, pickle_out)
-
-            self.__split_dataset()
         else:
             # Deserialize data from pickle format
             with open(os.path.join('dataset', 'X.pickle'), 'rb') as pickle_in:
@@ -133,7 +132,7 @@ class OdoaldoSandwichRating:
             with open(os.path.join('dataset', 'y.pickle'), 'rb') as pickle_in:
                 self.y = pickle_load(pickle_in)
 
-            self.__split_dataset()
+        self.__split_dataset()
 
     def build_model(self):
         if not os.path.exists('odoaldo_sandwich_rating_model'):
@@ -221,7 +220,9 @@ def main():
     # Use if for whatever reason you cannot train on GPU
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    odoaldo_sandwich_rating = OdoaldoSandwichRating(epochs=16)
+    epochs = sys_argv[1] if len(sys_argv) > 1 else 16
+
+    odoaldo_sandwich_rating = OdoaldoSandwichRating(epochs=epochs)
     odoaldo_sandwich_rating.prepare_dataset()
     if odoaldo_sandwich_rating.build_model():
         odoaldo_sandwich_rating.train_model()

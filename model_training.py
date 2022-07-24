@@ -45,21 +45,31 @@ class OdoaldoSandwichRating:
         plt.show()
 
     def __oversample_dataset(self, X_in, y_in):
-        # Show rating distribution in dataset before oversampling
-        self.__show_rating_distribution(y_in, "before oversampling dataset")
-
         # Oversample data
         unique, unique_index, unique_count = np.unique(y_in, return_inverse=True, return_counts=True)
-        count = np.max(unique_count)
-        X_oversampled = np.empty((count * len(unique) - len(X_in),) + X_in.shape[1:], X_in.dtype)
-        y_oversampled = np.empty((count * len(unique) - len(y_in),) + y_in.shape[1:], y_in.dtype)
-        slices = np.concatenate(([0], np.cumsum(count - unique_count)))
+        max_count = np.max(unique_count)
+        X_oversampled = np.empty((max_count * len(unique) - len(X_in),) + X_in.shape[1:], X_in.dtype)
+        y_oversampled = np.empty((max_count * len(unique) - len(y_in),) + y_in.shape[1:], y_in.dtype)
+        slices = np.concatenate(([0], np.cumsum(max_count - unique_count)))
         for i in range(len(unique)):
-            indices = np.random.choice(np.where(unique_index == i)[0], count - unique_count[i])
+            indices = np.random.choice(np.where(unique_index == i)[0], max_count - unique_count[i])
             X_oversampled[slices[i]:slices[i + 1]] = X_in[indices]
             y_oversampled[slices[i]:slices[i + 1]] = y_in[indices]
         self.X = np.concatenate((X_in, X_oversampled))
         self.y = np.concatenate((y_in, y_oversampled))
+
+    def __undersample_dataset(self, X_in, y_in):
+        # Undersample data
+        unique, unique_index, unique_count = np.unique(y_in, return_inverse=True, return_counts=True)
+        min_count = np.min(unique_count)
+        X_undersampled = np.empty((min_count * len(unique),) + X_in.shape[1:], X_in.dtype)
+        y_undersampled = np.empty((min_count * len(unique),) + y_in.shape[1:], y_in.dtype)
+        for i in range(len(unique)):
+            indices = np.random.choice(np.where(unique_index == i)[0], min_count)
+            X_undersampled[min_count * i:min_count * (i + 1)] = X_in[indices]
+            y_undersampled[min_count * i:min_count * (i + 1)] = y_in[indices]
+        self.X = X_undersampled
+        self.y = y_undersampled
 
     def __split_dataset(self):
         # Show rating distribution in dataset before splitting
@@ -92,7 +102,16 @@ class OdoaldoSandwichRating:
             # Normalize data (color values)
             X_in = X_in / 255.0
 
-            self.__oversample_dataset(X_in, y_in)
+            # Show rating distribution in dataset before balancing
+            self.__show_rating_distribution(y_in, "before balancing dataset")
+
+            choice = input("Do you want to oversample or undersample the dataset? (o/u) ")
+            if choice == 'o':
+                self.__oversample_dataset(X_in, y_in)
+            elif choice == 'u':
+                self.__undersample_dataset(X_in, y_in)
+            else:
+                return 1
 
             # Shuffle dataset
             indices = list(range(len(self.X)))

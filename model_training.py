@@ -173,6 +173,9 @@ class OdoaldoSandwichRating:
         else:
             # Load saved model
             self.model = keras_load_model('odoaldo_sandwich_rating_model', compile=False)
+
+            self.model.summary()
+
             # Recompile loaded module
             self.model.compile(loss=tf_losses.MeanSquaredError(), optimizer=tf_optimizers.nadam_v2.Nadam(),
                                metrics=[tf_metrics.MeanAbsoluteError(), tfa_metrics.RSquare(y_shape=(1,))])

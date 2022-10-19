@@ -11,12 +11,15 @@ from tensorflow.python.keras.layers import (
     Activation,
     Conv2D,
     Dense,
+    Dropout,
     Flatten,
     MaxPooling2D
 )
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.models import load_model as keras_load_model
-from tensorflow_addons import metrics as tfa_metrics
+
+# Numpy RNG object
+np_rng = np.random.default_rng()
 
 
 # Dataset enum
@@ -26,8 +29,19 @@ class Dataset(enum.Enum):
     test = 2
 
 
-# Model class
+def show_rating_distribution(values, message):
+    # Show rating distribution in dataset
+    unique, counts = np.unique(values, return_counts=True)
+    plt.cla()
+    plt.bar([idx for idx in range(len(unique))], counts)
+    plt.title(f"Rating distribution {message}")
+    plt.xticks([idx + 0.5 for idx in range(len(unique))], unique, rotation=35, ha='right', size=10)
+    plt.show()
+
+
 class OdoaldoSandwichRating:
+    # Model class
+
     def __init__(self, train_batch_size=32, epochs=8):
         self.X = None
         self.y = None
@@ -35,15 +49,6 @@ class OdoaldoSandwichRating:
         self.history = None
         self.train_batch_size = train_batch_size
         self.epochs = epochs
-
-    def __show_rating_distribution(self, values, message):
-        # Show rating distribution in dataset
-        unique, counts = np.unique(values, return_counts=True)
-        plt.cla()
-        plt.bar([idx for idx in range(len(unique))], counts)
-        plt.title(f"Rating distribution {message}")
-        plt.xticks([idx + 0.5 for idx in range(len(unique))], unique, rotation=35, ha='right', size=10)
-        plt.show()
 
     def __oversample_dataset(self, X_in, y_in):
         # Oversample data
@@ -53,7 +58,7 @@ class OdoaldoSandwichRating:
         y_oversampled = np.empty((max_count * len(unique) - len(y_in),) + y_in.shape[1:], y_in.dtype)
         slices = np.concatenate(([0], np.cumsum(max_count - unique_count)))
         for i in range(len(unique)):
-            indices = np.random.choice(np.where(unique_index == i)[0], max_count - unique_count[i])
+            indices = np_rng.choice(np.where(unique_index == i)[0], max_count - unique_count[i], replace=True)
             X_oversampled[slices[i]:slices[i + 1]] = X_in[indices]
             y_oversampled[slices[i]:slices[i + 1]] = y_in[indices]
         self.X = np.concatenate((X_in, X_oversampled))
@@ -66,15 +71,35 @@ class OdoaldoSandwichRating:
         X_undersampled = np.empty((min_count * len(unique),) + X_in.shape[1:], X_in.dtype)
         y_undersampled = np.empty((min_count * len(unique),) + y_in.shape[1:], y_in.dtype)
         for i in range(len(unique)):
-            indices = np.random.choice(np.where(unique_index == i)[0], min_count)
+            indices = np_rng.choice(np.where(unique_index == i)[0], min_count, replace=False)
             X_undersampled[min_count * i:min_count * (i + 1)] = X_in[indices]
             y_undersampled[min_count * i:min_count * (i + 1)] = y_in[indices]
         self.X = X_undersampled
         self.y = y_undersampled
 
+    def __averagesample_dataset(self, X_in, y_in):
+        # Average-sample data
+        unique, unique_index, unique_count = np.unique(y_in, return_inverse=True, return_counts=True)
+        average_count = int(np.mean(unique_count))
+        X_averagesampled = np.empty((average_count * len(unique),) + X_in.shape[1:], X_in.dtype)
+        y_averagesampled = np.empty((average_count * len(unique),) + y_in.shape[1:], y_in.dtype)
+        for i in range(len(unique)):
+            indices = np.where(unique_index == i)[0]
+            if unique_count[i] == average_count:
+                pass
+            elif unique_count[i] > average_count:
+                indices = np_rng.choice(indices, average_count, replace=False)
+            else:
+                additional_indices = np_rng.choice(indices, average_count - unique_count[i], replace=True)
+                indices = np.concatenate((indices, additional_indices))
+            X_averagesampled[average_count * i:average_count * (i + 1)] = X_in[indices]
+            y_averagesampled[average_count * i:average_count * (i + 1)] = y_in[indices]
+        self.X = X_averagesampled
+        self.y = y_averagesampled
+
     def __split_dataset(self):
         # Show rating distribution in dataset before splitting
-        self.__show_rating_distribution(self.y, "before splitting dataset")
+        show_rating_distribution(self.y, "before splitting dataset")
 
         # Split dataset
         self.X = np.split(self.X, [int(len(self.X) * 0.8), int(len(self.X) * 0.9)])
@@ -104,15 +129,20 @@ class OdoaldoSandwichRating:
             X_in = X_in / 255.0
 
             # Show rating distribution in dataset before balancing
-            self.__show_rating_distribution(y_in, "before balancing dataset")
+            show_rating_distribution(y_in, "before balancing dataset")
 
-            choice = input("Do you want to oversample or undersample the dataset? (o/u) ")
+            choice = input("Do you want to oversample, undersample or averagesample\n"
+                           "(oversampling for lower than average, undersampling for higher than average) the dataset?\n"
+                           "(o/u/a, or enter to continue without modifying original dataset) ")
             if choice == 'o':
                 self.__oversample_dataset(X_in, y_in)
             elif choice == 'u':
                 self.__undersample_dataset(X_in, y_in)
+            elif choice == 'a':
+                self.__averagesample_dataset(X_in, y_in)
             else:
-                return 1
+                self.X = X_in
+                self.y = y_in
 
             # Shuffle dataset
             indices = list(range(len(self.X)))
@@ -140,25 +170,40 @@ class OdoaldoSandwichRating:
             self.model = Sequential()
 
             # First convolutional layer
-            self.model.add(Conv2D(16, (3, 3), input_shape=self.X[Dataset.train.value].shape[1:]))
+            self.model.add(Conv2D(32, kernel_size=(3, 3), strides=(1, 1),
+                                  input_shape=self.X[Dataset.train.value].shape[1:]))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D(2, 2))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
             # Second convolutional layer
-            self.model.add(Conv2D(32, (3, 3)))
+            self.model.add(Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
+                                  input_shape=self.X[Dataset.train.value].shape[1:]))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D(2, 2))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
             # Third convolutional layer
-            self.model.add(Conv2D(64, (3, 3)))
+            self.model.add(Conv2D(128, kernel_size=(5, 5), strides=(1, 1)))
             self.model.add(Activation('relu'))
-            self.model.add(MaxPooling2D(2, 2))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
             # Flatten layer
             self.model.add(Flatten())
-            # Hidden fully connected layer
+
+            # First dense layer
             self.model.add(Dense(512))
             self.model.add(Activation('relu'))
+            self.model.add(Dropout(0.5))
+
+            # Second dense layer
+            self.model.add(Dense(256))
+            self.model.add(Activation('relu'))
+            self.model.add(Dropout(0.5))
+
+            # Third dense layer
+            self.model.add(Dense(128))
+            self.model.add(Activation('relu'))
+            self.model.add(Dropout(0.5))
+
             # Output layer
             self.model.add(Dense(1))
             self.model.add(Activation('sigmoid'))
@@ -167,7 +212,7 @@ class OdoaldoSandwichRating:
 
             # Compile model
             self.model.compile(loss=tf_losses.MeanSquaredError(), optimizer=tf_optimizers.nadam_v2.Nadam(),
-                               metrics=[tf_metrics.MeanAbsoluteError(), tfa_metrics.RSquare(y_shape=(1,))])
+                               metrics=[tf_metrics.MeanAbsoluteError()])
             return True
         else:
             # Load saved model
@@ -177,7 +222,7 @@ class OdoaldoSandwichRating:
 
             # Recompile loaded module
             self.model.compile(loss=tf_losses.MeanSquaredError(), optimizer=tf_optimizers.nadam_v2.Nadam(),
-                               metrics=[tf_metrics.MeanAbsoluteError(), tfa_metrics.RSquare(y_shape=(1,))])
+                               metrics=[tf_metrics.MeanAbsoluteError()])
             return False
 
     def train_model(self):
@@ -207,7 +252,7 @@ class OdoaldoSandwichRating:
         fig.tight_layout(pad=4.0)
         plt.show()
 
-    def show_random_samples(self, number_of_samples=10):
+    def show_random_samples(self, number_of_samples=8):
         # Show some sample evaluations
         for i in random_choices(range(len(self.X[Dataset.test.value])), k=number_of_samples):
             plt.imshow(self.X[Dataset.test.value][i])
@@ -220,9 +265,10 @@ def main():
     # Use if for whatever reason you cannot train on GPU
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    epochs = sys_argv[1] if len(sys_argv) > 1 else 16
+    train_batch_size = int(sys_argv[1]) if len(sys_argv) > 1 else 32
+    epochs = int(sys_argv[2]) if len(sys_argv) > 2 else 12
 
-    odoaldo_sandwich_rating = OdoaldoSandwichRating(epochs=epochs)
+    odoaldo_sandwich_rating = OdoaldoSandwichRating(train_batch_size=train_batch_size, epochs=epochs)
     odoaldo_sandwich_rating.prepare_dataset()
     if odoaldo_sandwich_rating.build_model():
         odoaldo_sandwich_rating.train_model()

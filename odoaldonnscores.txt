@@ -1,0 +1,31 @@
+Which is the best dataset for target scores? (target is unknown equal or under 5%)
+Testing with 12 epochs, batch size 32
+
+Oversampling
+ - Train 0.0449
+ - Validation 0.0570
+ - Test 0.0551
+ - Unknown 0.2502
+Very good on test, but so so bad on unknown because of huge overfitting from oversampling
+
+Undersampling
+ - Train 0.2464
+ - Validation 0.2240
+ - Test 0.2436
+ - Unknown 0.1971
+Very good on unknown, but bad on its own test (that has never seen)
+
+
+Averagesampling 
+ - Train 0.0631
+ - Validation 0.1016
+ - Test 0.1026
+ - Unknown 0.2423
+Quite similar to the oversampling case, with a decent score on test (overfitting), but quite bad on unknown (could actually be a viable dataset solution for when there are less ratings images that need to be oversampled
+
+Not balanced
+ - Train 0.1478
+ - Validation 0.1494
+ - Test 0.1533
+ - Unknown 0.2261
+Not as bad as oversampling and averagesampling on unknown, but just a confirmation that the dataset should be balanced

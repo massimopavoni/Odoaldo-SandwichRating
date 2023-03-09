@@ -8,7 +8,6 @@ numpy = "*"
 matplotlib = "*"
 tensorflow = "*"
 opencv-python-headless = "*"
-readchar = "*"
 pyqt5 = "*"
 
 [dev-packages]
